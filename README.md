@@ -1,1 +1,332 @@
-# now-vibe
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Now Vibe (나우바이브)</title>
+    <!-- Tailwind CSS 및 FontAwesome(아이콘) 로드 -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 카카오 맵 API (발급받은 JavaScript 키를 입력하세요) -->
+    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=4a8ef3d6da3d04fff577f6d3027138ee&libraries=services,clusterer"></script>
+    <style>
+        /* 유령처럼 흐려지며 사라지는 애니메이션 (TTL 표현) */
+        @keyframes fadeGhost {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0.15; filter: blur(1px); transform: translateY(2px); }
+        }
+        .ghost-message {
+            animation: fadeGhost 15s forwards; /* 데모를 위해 15초 동안 서서히 흐려지도록 설정 */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col md:flex-row">
+
+    <!-- 좌측: 지도 및 실시간 히트맵 영역 -->
+    <main class="w-full md:w-1/2 h-[50vh] md:h-screen relative border-b md:border-b-0 md:border-r border-gray-800">
+        <div id="map" class="w-full h-full"></div>
+        <!-- 지도 위 고정 오버레이 (현재 상태) -->
+        <div class="absolute top-4 left-4 z-10 bg-gray-900/90 backdrop-blur p-3 rounded-xl shadow-lg border border-gray-800">
+            <h1 class="text-xl font-black text-amber-400 tracking-wider"><i class="fa-solid fa-bolt mr-1"></i>NOW VIBE</h1>
+            <p class="text-xs text-gray-400 mt-1">지금 캠퍼스의 찰나를 공유하세요</p>
+        </div>
+        <!-- 위치 인증 가이드 -->
+        <div class="absolute bottom-4 left-4 z-10 bg-black/70 px-3 py-1.5 rounded-full text-xs flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            <span>인증된 캠퍼스 구역 내에서만 작성 가능</span>
+        </div>
+    </main>
+
+    <!-- 우측: 피드 및 컨트롤 패널 (스크린샷 2026-05-25 21.46.55.png 구조 반영) -->
+    <section class="w-full md:w-1/2 h-[50vh] md:h-screen flex flex-col bg-gray-950 overflow-hidden">
+        
+        <!-- 상단 탭 네비게이션 -->
+        <nav class="flex border-b border-gray-800 bg-gray-900 text-sm font-medium">
+            <button onclick="switchTab('all')" id="tab-all" class="flex-1 py-4 text-center border-b-2 border-amber-400 text-amber-400 font-bold">전체 메시지</button>
+            <button onclick="switchTab('current')" id="tab-current" class="flex-1 py-4 text-center border-b-2 border-transparent text-gray-400 hover:text-gray-200">현재위치 메시지</button>
+            <button onclick="switchTab('history')" id="tab-history" class="flex-1 py-4 text-center border-b-2 border-transparent text-gray-400 hover:text-gray-200">히스토리 (동선)</button>
+        </nav>
+
+        <!-- 정렬 및 필터 (전체메시지 상단용) -->
+        <div id="filter-bar" class="px-4 py-2 bg-gray-900/50 flex justify-between items-center text-xs text-gray-400 border-b border-gray-900">
+            <span>나우바이브 맵 피드</span>
+            <div class="flex gap-3">
+                <button class="text-amber-400 font-semibold">최신순</button>
+                <button class="hover:text-gray-200">인기순</button>
+            </div>
+        </div>
+
+        <!-- 스크롤 가능한 메시지 리스트 영역 -->
+        <div id="feed-container" class="flex-1 overflow-y-auto p-4 space-y-3">
+            <!-- 메시지들이 자바스크립트로 이곳에 동적 렌더링됩니다. -->
+        </div>
+
+        <!-- 하단 메시지 작성 컴포넌트 -->
+        <div class="p-4 bg-gray-900 border-t border-gray-800">
+            <form id="vibe-form" onsubmit="handleSubmit(event)" class="space-y-2">
+                <div class="flex gap-2">
+                    <input type="text" id="vibe-input" required max="100" 
+                           placeholder="“공정대 사람 왤케 많음 ㅋㅋ” (해당 장소에서만 작성 가능)" 
+                           class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-400 transition-colors">
+                    <button type="button" onclick="triggerFileInput()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 rounded-xl transition-colors">
+                        <i class="fa-solid fa-camera text-base"></i>
+                    </button>
+                </div>
+                <input type="file" id="file-input" accept="image/*" class="hidden" onchange="handleFileChange()">
+                <div id="file-preview-container" class="hidden text-xs text-amber-400 flex items-center gap-2 bg-gray-950 p-2 rounded-lg border border-gray-800">
+                    <i class="fa-solid fa-image"></i> <span id="file-name">이미지 업로드됨</span>
+                    <button type="button" onclick="clearFile()" class="text-red-400 ml-auto"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                
+                <div class="flex justify-between items-center pt-1">
+                    <!-- TTL(휘발성) 옵션 선택 -->
+                    <div class="flex items-center gap-2 text-xs text-gray-400">
+                        <label for="ttl-select"><i class="fa-regular fa-clock mr-1"></i>유지 시간:</label>
+                        <select id="ttl-select" class="bg-gray-950 border border-gray-800 rounded px-2 py-1 focus:outline-none">
+                            <option value="3">3시간 (기본 휘발)</option>
+                            <option value="24">24시간 하루저장</option>
+                            <option value="999">영구 보존</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="bg-amber-400 hover:bg-amber-500 text-gray-950 px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-colors">
+                        <i class="fa-solid fa-paper-plane mr-1"></i> 올리기
+                    </button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- 디테일 모달 (메시지 자세히 보기) -->
+    <div id="detail-modal" class="hidden fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-gray-900 border border-gray-800 max-w-md w-full rounded-2xl p-5 relative shadow-2xl">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-100 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-amber-400 font-bold text-sm mb-2"><i class="fa-solid fa-location-dot mr-1"></i> 메시지 자세히 보기</h3>
+            <div id="modal-content" class="space-y-3 pt-2">
+                <!-- 상세 내용 동적 삽입 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript 로직 -->
+    <script>
+        // 초기 가상 데이터 샘플 (캠퍼스 가상 좌표 설정)
+        let messages = [
+            { id: 1, text: "공정대 사람 왤케 많음 ㅋㅋ 오늘 무슨 행사하나?", location: "공학관 앞", lat: 36.6285, lng: 127.4568, likes: 12, time: "방금 전", ttl: 3, image: null },
+            { id: 2, text: "아니 여기 커플 뭐임? 중앙도서관 3층 계단 조심해라 솔로들아", location: "중앙도서관", lat: 36.6272, lng: 127.4542, likes: 24, time: "23분 전", ttl: 24, image: null },
+            { id: 3, text: "학생회관 학식 돈까스 품절임 ㅠㅠ 헛걸음 ㄴㄴ", location: "학생회관", lat: 36.6258, lng: 127.4571, likes: 5, time: "1시간 전", ttl: 3, image: null }
+        ];
+
+        let currentTab = 'all';
+        let selectedFile = null;
+        let map, heatmapClusterer;
+        let userLat = 36.6285, userLng = 127.4568; // 디폴트 좌표 (충북대 캠퍼스 기준 예시)
+
+        // 카카오 맵 초기화 및 사용자 위치 추적
+        window.onload = function() {
+            console.log("TJsiljdfdlsjfklsdajl")
+            const container = document.getElementById('map');
+            const options = {
+                center: new kakao.maps.LatLng(userLat, userLng),
+                level: 3
+            };
+            map = new kakao.maps.Map(container, options);
+
+            // Geolocation 활용한 실시간 위치 조회
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    userLat = position.coords.latitude;
+                    userLng = position.coords.longitude;
+                    const moveLatLon = new kakao.maps.LatLng(userLat, userLng);
+                    map.setCenter(moveLatLon);
+                    
+                    // 유저 현재 위치 마커 표시
+                    new kakao.maps.Marker({
+                        position: moveLatLon,
+                        map: map,
+                        title: "내 위치"
+                    });
+                });
+            }
+            renderFeed();
+            updateHeatmap();
+        };
+
+        // 탭 전환 기능 (`스크린샷 2026-05-25 21.46.55.png` 구조화 반영)
+        function switchTab(tab) {
+            currentTab = tab;
+            const tabs = ['all', 'current', 'history'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (t === tab) {
+                    el.className = "flex-1 py-4 text-center border-b-2 border-amber-400 text-amber-400 font-bold";
+                } else {
+                    el.className = "flex-1 py-4 text-center border-b-2 border-transparent text-gray-400 hover:text-gray-200";
+                }
+            });
+            
+            const filterBar = document.getElementById('filter-bar');
+            if(tab === 'all') filterBar.innerHTML = `<span>나우바이브 맵 피드</span><div class="flex gap-3"><button class="text-amber-400 font-semibold">최신순</button><button class="hover:text-gray-200">인기순</button></div>`;
+            else if(tab === 'current') filterBar.innerHTML = `<span>반경 100m 이내 현재위치 메시지</span>`;
+            else if(tab === 'history') filterBar.innerHTML = `<span>오늘 내가 지나온 타임라인 동선</span>`;
+
+            renderFeed();
+        }
+
+        // 피드 리스트 출력 함수 (유령 효과 믹싱)
+        function renderFeed() {
+            const container = document.getElementById('feed-container');
+            container.innerHTML = '';
+
+            let filtered = messages;
+            if (currentTab === 'current') {
+                // 현재 내 위치 기준 근접 메시지 필터 (단순 가상 거리 계산 구현)
+                filtered = messages.filter(m => Math.abs(m.lat - userLat) < 0.005 && Math.abs(m.lng - userLng) < 0.005);
+            } else if (currentTab === 'history') {
+                // 사용자의 오늘 동선 데이터 가정 리스트
+                container.innerHTML = `
+                    <div class="p-4 border-l-2 border-amber-400 space-y-6 ml-2">
+                        <div class="relative"><span class="absolute -left-[21px] top-1 bg-amber-400 w-2.5 h-2.5 rounded-full"></span><p class="text-xs text-gray-400">오전 10:14</p><p class="text-sm font-semibold">공정대 건물 진입</p></div>
+                        <div class="relative"><span class="absolute -left-[21px] top-1 bg-gray-600 w-2.5 h-2.5 rounded-full"></span><p class="text-xs text-gray-400">오후 12:30</p><p class="text-sm font-semibold">학생회관 식당 이동</p></div>
+                        <div class="relative"><span class="absolute -left-[21px] top-1 bg-gray-600 w-2.5 h-2.5 rounded-full"></span><p class="text-xs text-gray-400">오후 02:05</p><p class="text-sm font-semibold">중앙도서관 열람실 입실</p></div>
+                    </div>`;
+                return;
+            }
+
+            if(filtered.length === 0) {
+                container.innerHTML = `<div class="text-center py-12 text-gray-500 text-sm">해당 구역에 공유된 바이브가 없습니다.</div>`;
+                return;
+            }
+
+            filtered.forEach(msg => {
+                // 3시간 이하 휘발성 글인 경우 프론트엔드상에서 유령(ghost-message) 스타일 클래스 추가 가능
+                const isGhost = msg.ttl <= 3 ? 'ghost-message' : '';
+                
+                const card = document.createElement('div');
+                card.className = `bg-gray-900 border border-gray-800 p-4 rounded-xl cursor-pointer hover:border-gray-700 transition-all ${isGhost}`;
+                card.onclick = () => openModal(msg);
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs px-2 py-0.5 rounded bg-gray-800 text-amber-400 font-medium">익명</span>
+                            <span class="text-xs text-gray-500"><i class="fa-solid fa-location-dot text-[10px] text-gray-400 mr-1"></i>${msg.location}</span>
+                        </div>
+                        <span class="text-xs text-gray-500">${msg.time}</span>
+                    </div>
+                    <p class="text-sm text-gray-200 leading-relaxed mb-3">${msg.text}</p>
+                    ${msg.image ? `<img src="${msg.image}" class="w-full h-32 object-cover rounded-lg mb-3 border border-gray-800">` : ''}
+                    <div class="flex justify-between items-center text-xs text-gray-500 pt-1 border-t border-gray-900">
+                        <span class="text-[10px] text-gray-400"><i class="fa-regular fa-clock mr-1"></i>남은시간: ${msg.ttl === 999 ? '영구보존' : msg.ttl+'시간'}</span>
+                        <div class="flex gap-4">
+                            <button onclick="likeMessage(event, ${msg.id})" class="hover:text-amber-400 flex items-center gap-1">
+                                <i class="fa-regular fa-heart"></i> <span>${msg.likes}</span>
+                            </button>
+                            <button class="hover:text-red-400"><i class="fa-regular fa-flag"></i> 신고</button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // 히트맵 시각화 업데이트 (지도 위에 오버레이/마커 클러스터 등으로 표현)
+        function updateHeatmap() {
+            if (!map) return;
+            // 실시간 사람 몰림 수준을 히트맵 형태의 원형 오버레이로 지도 위에 투영
+            messages.forEach(msg => {
+                // 좋아요수나 데이터 밀집도가 높을수록 더 붉고 큰 영역을 생성 (빨강~파랑 스펙트럼 반영)
+                const intensity = msg.likes > 15 ? '#ef4444' : '#3b82f6';
+                const radius = msg.likes > 15 ? 45 : 25;
+
+                const circle = new kakao.maps.Circle({
+                    center : new kakao.maps.LatLng(msg.lat, msg.lng),  
+                    radius: radius, 
+                    strokeWeight: 0,
+                    fillColor: intensity, 
+                    fillOpacity: 0.4  
+                });
+                circle.setMap(map);
+            });
+        }
+
+        // 메시지 등록 처리
+        function handleSubmit(e) {
+            e.preventDefault();
+            const input = document.getElementById('vibe-input');
+            const ttlSelect = document.getElementById('ttl-select');
+            
+            if(!input.value.trim()) return;
+
+            // 새 메시지 객체 빌드 (현재 유저 좌표 투영)
+            const newMsg = {
+                id: messages.length + 1,
+                text: input.value,
+                location: "내 주변 캠퍼스",
+                lat: userLat + (Math.random() - 0.5) * 0.001, // 실시간 반경 노이즈 가공
+                lng: userLng + (Math.random() - 0.5) * 0.001,
+                likes: 0,
+                time: "방금 전",
+                ttl: parseInt(ttlSelect.value),
+                image: selectedFile
+            };
+
+            messages.unshift(newMsg);
+            input.value = '';
+            clearFile();
+            
+            renderFeed();
+            updateHeatmap();
+        }
+
+        // 좋아요 토글 기능
+        function likeMessage(event, id) {
+            event.stopPropagation(); // 카드 클릭 상세 보기 전파 방지
+            const msg = messages.find(m => m.id === id);
+            if(msg) {
+                msg.likes += 1;
+                renderFeed();
+                updateHeatmap();
+            }
+        }
+
+        // 상세 모달 열기/닫기 (`스크린샷 2026-05-25 21.46.55.png` 하단 피드 요구 반영)
+        function openModal(msg) {
+            const modal = document.getElementById('detail-modal');
+            const content = document.getElementById('modal-content');
+            
+            content.innerHTML = `
+                <p class="text-base text-white font-medium my-2">"${msg.text}"</p>
+                ${msg.image ? `<img src="${msg.image}" class="w-full h-auto max-h-60 object-cover rounded-xl border border-gray-800">` : ''}
+                <div class="flex justify-between items-center text-xs text-gray-400 pt-3 border-t border-gray-800">
+                    <span><i class="fa-solid fa-map-pin mr-1"></i>위치: ${msg.location}</span>
+                    <span>공유 타임라인: ${msg.time}</span>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('detail-modal').classTo
+            document.getElementById('detail-modal').classList.add('hidden');
+        }
+
+        // 이미지 파일 처리 유틸리티
+        function triggerFileInput() { document.getElementById('file-input').click(); }
+        function handleFileChange() {
+            const file = document.getElementById('file-input').files[0];
+            if(file) {
+                selectedFile = URL.createObjectURL(file); // 임시 로컬 URL 발급
+                document.getElementById('file-name').innerText = file.name;
+                document.getElementById('file-preview-container').classList.remove('hidden');
+            }
+        }
+        function clearFile() {
+            selectedFile = null;
+            document.getElementById('file-input').value = '';
+            document.getElementById('file-preview-container').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
