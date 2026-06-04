@@ -23,6 +23,9 @@ let isSubmitting = false;
 let map = null;
 let userMarker = null;
 let heatCircles = [];
+let messageOverlays = [];
+let currentFeedMessages = [];
+let selectedLocationGroup = null;
 
 let userLat = DEFAULT_LAT;
 let userLng = DEFAULT_LNG;
@@ -65,7 +68,11 @@ async function apiRequest(path, options = {}) {
 
   // body가 있는 요청일 때만 JSON 헤더를 붙임
   // GET 요청에는 Content-Type을 붙이면 Flask가 빈 body를 JSON으로 파싱하려고 할 수 있음
-  if (fetchOptions.body && !fetchOptions.headers["Content-Type"]) {
+  if (
+    fetchOptions.body &&
+    !(fetchOptions.body instanceof FormData) &&
+    !fetchOptions.headers["Content-Type"]
+  ) {
     fetchOptions.headers["Content-Type"] = "application/json";
   }
 
@@ -229,6 +236,7 @@ async function recordUserLocation() {
 async function switchTab(tab) {
   console.log(`[TAB] switchTab 호출: "${tab}" (이전: "${currentTab}")`);
   currentTab = tab;
+  selectedLocationGroup = null;
 
   const tabs = ["all", "current", "history"];
 
@@ -275,6 +283,16 @@ function setSort(sort) {
 function renderFilterBar() {
   const filterBar = $("filter-bar");
   if (!filterBar) return;
+
+  if (selectedLocationGroup && currentTab !== "history") {
+    filterBar.innerHTML = `
+      <span>선택한 위치의 메시지 ${selectedLocationGroup.messages.length}개</span>
+      <button type="button" onclick="showAllMessages()" class="text-amber-400 font-semibold">
+        전체 보기
+      </button>
+    `;
+    return;
+  }
 
   if (currentTab === "all") {
     filterBar.innerHTML = `
@@ -364,6 +382,9 @@ async function fetchMessages() {
     if (!isActiveLoad(token)) return;
 
     messages = normalizeMessages(data.messages || []);
+    currentFeedMessages = messages;
+    selectedLocationGroup = null;
+    renderFilterBar();
 
     renderFeed(messages);
     updateHeatmap(messages);
@@ -397,6 +418,9 @@ async function fetchNearbyMessages() {
     if (!isActiveLoad(token)) return;
 
     const nearbyMessages = normalizeMessages(data.messages || []);
+    currentFeedMessages = nearbyMessages;
+    selectedLocationGroup = null;
+    renderFilterBar();
 
     renderFeed(nearbyMessages);
     updateHeatmap(nearbyMessages);
@@ -635,44 +659,104 @@ function showFeedError(message) {
    // 8. 지도 히트맵 업데이트
 
 function updateHeatmap(feedMessages = []) {
-  if (!map || !window.kakao || !window.kakao.maps) return;
   if (!Array.isArray(feedMessages)) return;
+  if (!map || !window.kakao || !window.kakao.maps) return;
 
   clearHeatmap();
 
-  feedMessages.forEach((message) => {
-    if (!Number.isFinite(message.latitude) || !Number.isFinite(message.longitude)) {
-      return;
-    }
+  const groups = groupMessagesByLocation(feedMessages);
 
-    const circle = new kakao.maps.Circle({
-      center: new kakao.maps.LatLng(message.latitude, message.longitude),
-      radius: message.likes >= 15 ? 45 : 25,
-      strokeWeight: 0,
-      fillColor: message.likes >= 15 ? "#ef4444" : "#3b82f6",
-      fillOpacity: 0.4,
+  groups.forEach((group) => {
+    const position = new kakao.maps.LatLng(group.lat, group.lng);
+    const overlay = new kakao.maps.CustomOverlay({
+      position,
+      xAnchor: 0.5,
+      yAnchor: 0.5,
+      clickable: true,
     });
 
-    circle.setMap(map);
-    heatCircles.push(circle);
+    const badge = document.createElement("div");
+    badge.className = "nowvibe-badge";
+    badge.textContent = String(group.messages.length);
+
+    badge.addEventListener("click", (event) => {
+      event.stopPropagation();
+      showMessagesAtLocation(group);
+    });
+
+    overlay.setContent(badge);
+    overlay.setMap(map);
+    messageOverlays.push(overlay);
   });
 }
 
 function clearHeatmap() {
   heatCircles.forEach((circle) => circle.setMap(null));
   heatCircles = [];
+
+  messageOverlays.forEach((overlay) => overlay.setMap(null));
+  messageOverlays = [];
+}
+
+function groupMessagesByLocation(feedMessages = []) {
+  if (!Array.isArray(feedMessages)) return [];
+
+  const groups = {};
+
+  feedMessages.forEach((message) => {
+    if (!Number.isFinite(message.latitude) || !Number.isFinite(message.longitude)) {
+      return;
+    }
+
+    const latKey = message.latitude.toFixed(4);
+    const lngKey = message.longitude.toFixed(4);
+    const key = `${latKey}_${lngKey}`;
+
+    if (!groups[key]) {
+      groups[key] = {
+        lat: Number(latKey),
+        lng: Number(lngKey),
+        messages: [],
+      };
+    }
+
+    groups[key].messages.push(message);
+  });
+
+  return Object.values(groups);
+}
+
+function showMessagesAtLocation(group) {
+  if (!group || !Array.isArray(group.messages)) return;
+
+  selectedLocationGroup = group;
+  renderFilterBar();
+  renderFeed(group.messages);
+
+  if (map && window.kakao && window.kakao.maps) {
+    map.setCenter(new kakao.maps.LatLng(group.lat, group.lng));
+  }
+}
+
+function showAllMessages() {
+  selectedLocationGroup = null;
+  renderFilterBar();
+  renderFeed(currentFeedMessages || []);
+  updateHeatmap(currentFeedMessages || []);
 }
 
   //  9. 메시지 생성
 
 function bindFormSubmit() {
   const form = $("vibe-form");
-  if (!form) return;
+  if (!form || form.dataset.submitBound === "true") return;
 
   form.addEventListener("submit", (event) => {
     console.trace("[FORM-SUBMIT] 폼 submit 이벤트 발생! 호출 스택:");
     handleSubmit(event);
   });
+
+  form.dataset.submitBound = "true";
 }
 
 async function handleSubmit(event) {
@@ -708,10 +792,6 @@ async function handleSubmit(event) {
       return;
     }
 
-    if (selectedFile) {
-      console.warn("현재 백엔드는 이미지 파일 업로드 API가 없어 텍스트만 등록됩니다.");
-    }
-
     const payload = {
       device_id: DEVICE_ID,
       text,
@@ -722,9 +802,13 @@ async function handleSubmit(event) {
       campus_id: CAMPUS_ID,
     };
 
+    const requestBody = selectedFile
+      ? buildMessageFormData(payload, selectedFile)
+      : JSON.stringify(payload);
+
     await apiRequest("/messages", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: requestBody,
     });
 
     input.value = "";
@@ -747,6 +831,18 @@ async function handleSubmit(event) {
       submitButton.innerHTML = '<i class="fa-solid fa-paper-plane mr-1"></i> 올리기';
     }
   }
+}
+
+function buildMessageFormData(payload, file) {
+  const formData = new FormData();
+
+  Object.entries(payload).forEach(([key, value]) => {
+    formData.append(key, value);
+  });
+
+  formData.append("image", file);
+
+  return formData;
 }
 
 function updateTabStyleOnly() {
@@ -930,7 +1026,7 @@ function handleFileChange() {
 
   selectedFilePreviewUrl = URL.createObjectURL(file);
 
-  fileName.innerText = `${file.name} (현재는 미리보기만 가능)`;
+  fileName.innerText = file.name;
   previewContainer.classList.remove("hidden");
 }
 
@@ -1037,3 +1133,4 @@ window.closeModal = closeModal;
 window.triggerFileInput = triggerFileInput;
 window.handleFileChange = handleFileChange;
 window.clearFile = clearFile;
+window.showAllMessages = showAllMessages;
