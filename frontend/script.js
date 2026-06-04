@@ -24,11 +24,16 @@ let map = null;
 let userMarker = null;
 let heatCircles = [];
 let messageOverlays = [];
+// 인기 메시지 말풍선 오버레이 관리
+let messageBubbleOverlays = [];
 let currentFeedMessages = [];
 let selectedLocationGroup = null;
 
 let userLat = DEFAULT_LAT;
 let userLng = DEFAULT_LNG;
+
+// 인기 메시지 기준 (좋아요 수 이상일 때 말풍선 표시)
+const POPULAR_MESSAGE_LIKE_THRESHOLD = 1;
 
 function $(id) {
   return document.getElementById(id);
@@ -687,6 +692,11 @@ function updateHeatmap(feedMessages = []) {
     overlay.setContent(badge);
     overlay.setMap(map);
     messageOverlays.push(overlay);
+      // 인기 메시지 말풍선 생성 시도
+      const bubble = createPopularMessageBubbleOverlay(group);
+      if (bubble) {
+        messageBubbleOverlays.push(bubble);
+      }
   });
 }
 
@@ -696,6 +706,10 @@ function clearHeatmap() {
 
   messageOverlays.forEach((overlay) => overlay.setMap(null));
   messageOverlays = [];
+
+    // 인기 메시지 말풍선도 함께 제거
+    messageBubbleOverlays.forEach((overlay) => overlay.setMap(null));
+    messageBubbleOverlays = [];
 }
 
 function groupMessagesByLocation(feedMessages = []) {
@@ -736,6 +750,94 @@ function showMessagesAtLocation(group) {
   if (map && window.kakao && window.kakao.maps) {
     map.setCenter(new kakao.maps.LatLng(group.lat, group.lng));
   }
+}
+
+// 인기 메시지 관련 유틸 함수
+function getTopLikedMessage(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) return null;
+
+  return messages.reduce((best, msg) => {
+    if (!best) return msg;
+
+    if ((msg.likes || 0) > (best.likes || 0)) return msg;
+
+    if ((msg.likes || 0) === (best.likes || 0)) {
+      const a = new Date(msg.created_at || 0).getTime();
+      const b = new Date(best.created_at || 0).getTime();
+      return a > b ? msg : best;
+    }
+
+    return best;
+  }, null);
+}
+
+function createPopularMessageBubbleOverlay(group) {
+  if (!group || !Array.isArray(group.messages) || group.messages.length === 0) return null;
+  if (!map || !window.kakao || !window.kakao.maps) return null;
+
+  const top = getTopLikedMessage(group.messages);
+  if (!top) return null;
+  if ((top.likes || 0) < POPULAR_MESSAGE_LIKE_THRESHOLD) return null;
+
+  const position = new kakao.maps.LatLng(group.lat, group.lng);
+
+  const container = document.createElement('div');
+  container.className = 'popular-message-bubble';
+  container.style.cursor = 'pointer';
+
+  const heartOpacity = getHeartOpacity(top.likes || 0);
+  const heartScale = getHeartScale(top.likes || 0);
+
+  container.innerHTML = `
+    <div class="floating-heart" style="opacity: ${heartOpacity}; transform: scale(${heartScale});">❤</div>
+    <div class="popular-message-text">${escapeHTML(truncateMessageText(top.text || ''))}</div>
+    <div class="popular-message-like">❤️ ${top.likes || 0}</div>
+  `;
+
+  container.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    try {
+      showMessagesAtLocation(group);
+    } catch (e) {
+      console.error('showMessagesAtLocation 호출 실패:', e);
+    }
+  });
+
+  const overlay = new kakao.maps.CustomOverlay({
+    position,
+    content: container,
+    xAnchor: 0.5,
+    // yAnchor를 1.3으로 해서 배지보다 살짝 위에 표시
+    yAnchor: 1.3,
+    clickable: true,
+  });
+
+  overlay.setMap(map);
+
+  return overlay;
+}
+
+function truncateMessageText(text, maxLength = 22) {
+  if (!text) return '';
+  const trimmed = text.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  return trimmed.slice(0, maxLength) + '...';
+}
+
+function getHeartOpacity(likes) {
+  const n = Number(likes || 0);
+  if (n <= 3) return 0.35; // 약한 opacity
+  if (n < 10) return 0.6;
+  if (n < 20) return 0.85;
+  return 0.98; // 거의 선명
+}
+
+function getHeartScale(likes) {
+  const n = Math.max(0, Number(likes || 0));
+  const capped = Math.min(n, 20);
+  // 0 -> 1.0, 20 -> 1.3
+  const scale = 1 + (capped / 20) * 0.3;
+  return Math.min(1.3, Math.max(1.0, scale));
 }
 
 function showAllMessages() {
