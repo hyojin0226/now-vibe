@@ -517,48 +517,48 @@ function renderFeed(feedMessages) {
     const isGhost = message.ttl !== 999 && message.ttl <= 3;
 
     card.className =
-      `bg-gray-900 border border-gray-800 p-4 rounded-xl cursor-pointer hover:border-gray-700 transition-all ` +
+      `bg-white border border-slate-200 p-4 rounded-xl cursor-pointer hover:border-slate-300 transition-all ` +
       `${isGhost ? "ghost-message" : ""}`;
 
     card.innerHTML = `
       <div class="flex justify-between items-start mb-2">
         <div class="flex items-center gap-2">
-          <span class="text-xs px-2 py-0.5 rounded bg-gray-800 text-amber-400 font-medium">
+          <span class="text-xs px-2 py-0.5 rounded bg-slate-100 text-amber-500 font-medium">
             익명
           </span>
-          <span class="text-xs text-gray-500">
-            <i class="fa-solid fa-location-dot text-[10px] text-gray-400 mr-1"></i>
+          <span class="text-xs text-slate-500">
+            <i class="fa-solid fa-location-dot text-[10px] text-slate-400 mr-1"></i>
             ${escapeHTML(message.location)}
           </span>
         </div>
-        <span class="text-xs text-gray-500">${formatTime(message.created_at)}</span>
+        <span class="text-xs text-slate-500">${formatTime(message.created_at)}</span>
       </div>
 
-      <p class="text-sm text-gray-200 leading-relaxed mb-3">
+      <p class="text-sm text-slate-800 leading-relaxed mb-3">
         ${escapeHTML(message.text)}
       </p>
 
       ${
         message.image
-          ? `<img src="${escapeAttribute(message.image)}" alt="첨부 이미지" class="w-full h-32 object-cover rounded-lg mb-3 border border-gray-800">`
+          ? `<img src="${escapeAttribute(message.image)}" alt="첨부 이미지" class="w-full h-32 object-cover rounded-lg mb-3 border border-slate-200">`
           : ""
       }
 
-      <div class="flex justify-between items-center text-xs text-gray-500 pt-1 border-t border-gray-900">
-        <span class="text-[10px] text-gray-400">
+      <div class="flex justify-between items-center text-xs text-slate-500 pt-1 border-t border-slate-200">
+        <span class="text-[10px] text-slate-400">
           <i class="fa-regular fa-clock mr-1"></i>
           ${formatTTL(message)}
         </span>
 
         <div class="flex gap-4">
-          <button type="button" class="like-btn hover:text-amber-400 flex items-center gap-1 ${
-            message.is_liked_by_user ? "text-amber-400" : ""
+          <button type="button" class="like-btn hover:text-amber-500 flex items-center gap-1 ${
+            message.is_liked_by_user ? "text-amber-500" : "text-slate-600"
           }">
             <i class="${message.is_liked_by_user ? "fa-solid" : "fa-regular"} fa-heart"></i>
             <span>${message.likes}</span>
           </button>
 
-          <button type="button" class="report-btn hover:text-red-400">
+          <button type="button" class="report-btn hover:text-red-600 text-slate-600">
             <i class="fa-regular fa-flag"></i> 신고
           </button>
         </div>
@@ -591,12 +591,12 @@ function renderHistory(history) {
 
   if (!history || history.length === 0) {
     container.innerHTML = `
-      <div class="p-4 border-l-2 border-amber-400 space-y-6 ml-2">
+      <div class="p-4 border-l-2 border-amber-500 space-y-6 ml-2 bg-white rounded-xl shadow-sm">
         <div class="relative">
-          <span class="absolute -left-[21px] top-1 bg-amber-400 w-2.5 h-2.5 rounded-full"></span>
-          <p class="text-xs text-gray-400">동선 기록 없음</p>
-          <p class="text-sm font-semibold">아직 기록된 동선이 없습니다.</p>
-          <p class="text-xs text-gray-500 mt-1">
+          <span class="absolute -left-[21px] top-1 bg-amber-500 w-2.5 h-2.5 rounded-full"></span>
+          <p class="text-xs text-slate-500">동선 기록 없음</p>
+          <p class="text-sm font-semibold text-slate-900">아직 기록된 동선이 없습니다.</p>
+          <p class="text-xs text-slate-500 mt-1">
             위치 권한을 허용하면 이곳에 이동 기록이 표시됩니다.
           </p>
         </div>
@@ -638,7 +638,7 @@ function showFeedLoading(message) {
   if (!container) return;
 
   container.innerHTML = `
-    <div class="text-center py-12 text-gray-500 text-sm">
+    <div class="text-center py-12 text-slate-500 text-sm">
       ${escapeHTML(message)}
     </div>
   `;
@@ -649,10 +649,10 @@ function showFeedError(message) {
   if (!container) return;
 
   container.innerHTML = `
-    <div class="text-center py-12 text-red-400 text-sm">
+    <div class="text-center py-12 text-red-600 text-sm">
       <i class="fa-solid fa-triangle-exclamation mr-1"></i>
       ${escapeHTML(message)}
-      <div class="text-gray-500 text-xs mt-2">
+      <div class="text-slate-500 text-xs mt-2">
         백엔드 서버가 켜져 있는지, API 주소가 ${API_BASE_URL}인지 확인해주세요.
       </div>
     </div>
@@ -1035,8 +1035,7 @@ async function openMessageModal(messageId) {
   if (!modal || !content) return;
 
   content.innerHTML = `
-    <div class="text-center py-8 text-gray-500 text-sm">
-      메시지를 불러오는 중입니다...
+      <div class="text-center py-8 text-slate-500 text-sm">
     </div>
   `;
 
@@ -1081,7 +1080,7 @@ async function openMessageModal(messageId) {
     console.error("상세 조회 실패:", error);
 
     content.innerHTML = `
-      <div class="text-center py-8 text-red-400 text-sm">
+      <div class="text-center py-8 text-red-600 text-sm">
         ${escapeHTML(error.message || "상세 메시지를 불러오지 못했습니다.")}
       </div>
     `;

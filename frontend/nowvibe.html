@@ -31,7 +31,7 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            border: 2px solid rgba(255,255,255,0.95);
+            border: 2px solid rgba(18, 18, 18, 0.95);
             box-shadow: 0 10px 20px rgba(15,23,42,0.22);
             cursor: pointer;
             transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -42,23 +42,23 @@
             transform: scale(1.08);
             box-shadow: 0 14px 26px rgba(15,23,42,0.30);
         }
-        /* 인기 메시지 말풍선 스타일 */
+
         .popular-message-bubble {
             position: relative;
-            background: #0b1220; /* 다크톤 배경 */
-            color: #ffffff;
-            padding: 10px 12px 10px 12px;
-            border-radius: 10px; /* 둥근 모서리 */
-            box-shadow: 0 8px 20px rgba(2,6,23,0.6); /* 그림자 */
+            background: rgba(15, 23, 42, 0.95);
+            color: #f8fafc;
+            padding: 12px 14px 12px 14px;
+            border-radius: 14px;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.4);
             max-width: 220px;
             font-size: 13px;
-            line-height: 1.3;
-            border: 1px solid rgba(255,255,255,0.04);
+            line-height: 1.4;
+            border: 1px solid rgba(255,255,255,0.08);
             overflow: hidden;
         }
 
         .popular-message-text {
-            color: #e6eef8;
+            color: #e2e8f0;
             font-weight: 600;
             margin-right: 8px;
             display: block;
@@ -71,7 +71,7 @@
             display: inline-block;
             margin-top: 6px;
             font-size: 12px;
-            color: #ff7aa2;
+            color: #ff9baf;
             font-weight: 700;
         }
 
@@ -85,64 +85,64 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #ff4d6d;
+            color: #ff6b81;
             font-size: 16px;
-            filter: drop-shadow(0 4px 10px rgba(0,0,0,0.45));
+            filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
             animation: floatHeart 1600ms ease-in-out infinite;
         }
 
         @keyframes floatHeart {
             0% {
                 transform: translateY(0) scale(1);
-                opacity: 0.0;
+                opacity: 0;
             }
-            10% {
-                opacity: 0.9;
+            20% {
+                opacity: 0.85;
             }
             60% {
                 transform: translateY(-14px) scale(1.05);
-                opacity: 0.6;
+                opacity: 0.55;
             }
             100% {
-                transform: translateY(-26px) scale(1.08);
+                transform: translateY(-30px) scale(1.08);
                 opacity: 0;
             }
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col md:flex-row">
+<body class="bg-slate-100 text-slate-900 font-sans min-h-screen flex flex-col md:flex-row">
 
     <!-- 좌측: 지도 및 실시간 히트맵 영역 -->
-    <main class="w-full md:w-1/2 h-[50vh] md:h-screen relative border-b md:border-b-0 md:border-r border-gray-800">
+    <main class="w-full md:w-1/2 h-[50vh] md:h-screen relative border-b md:border-b-0 md:border-r border-slate-300">
         <div id="map" class="w-full h-full"></div>
         <!-- 지도 위 고정 오버레이 (현재 상태) -->
-        <div class="absolute top-4 left-4 z-10 bg-gray-900/90 backdrop-blur p-3 rounded-xl shadow-lg border border-gray-800">
-            <h1 class="text-xl font-black text-amber-400 tracking-wider"><i class="fa-solid fa-bolt mr-1"></i>NOW VIBE</h1>
-            <p class="text-xs text-gray-400 mt-1">지금 캠퍼스의 찰나를 공유하세요</p>
+        <div class="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur p-3 rounded-xl shadow-lg border border-slate-200">
+            <h1 class="text-xl font-black text-amber-500 tracking-wider"><i class="fa-solid fa-bolt mr-1"></i>NOW VIBE</h1>
+            <p class="text-xs text-slate-600 mt-1">지금 캠퍼스의 찰나를 공유하세요</p>
         </div>
         <!-- 위치 인증 가이드 -->
-        <div class="absolute bottom-4 left-4 z-10 bg-black/70 px-3 py-1.5 rounded-full text-xs flex items-center gap-2">
+        <div class="absolute bottom-4 left-4 z-10 bg-white/80 px-3 py-1.5 rounded-full text-xs flex items-center gap-2 text-slate-700 border border-slate-200">
             <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
             <span>인증된 캠퍼스 구역 내에서만 작성 가능</span>
         </div>
     </main>
 
     <!-- 우측: 피드 및 컨트롤 패널 (스크린샷 2026-05-25 21.46.55.png 구조 반영) -->
-    <section class="w-full md:w-1/2 h-[50vh] md:h-screen flex flex-col bg-gray-950 overflow-hidden">
+    <section class="w-full md:w-1/2 h-[50vh] md:h-screen flex flex-col bg-slate-50 overflow-hidden">
         
         <!-- 상단 탭 네비게이션 -->
-        <nav class="flex border-b border-gray-800 bg-gray-900 text-sm font-medium">
-            <button type="button" onclick="switchTab('all')" id="tab-all" class="flex-1 py-4 text-center border-b-2 border-amber-400 text-amber-400 font-bold">전체 메시지</button>
-            <button onclick="switchTab('current')" id="tab-current" class="flex-1 py-4 text-center border-b-2 border-transparent text-gray-400 hover:text-gray-200">현재위치 메시지</button>
-            <button type="button" onclick="switchTab('history')" id="tab-history" class="flex-1 py-4 text-center border-b-2 border-transparent text-gray-400 hover:text-gray-200">히스토리 (동선)</button>
+        <nav class="flex border-b border-slate-300 bg-slate-100 text-sm font-medium text-slate-700">
+            <button type="button" onclick="switchTab('all')" id="tab-all" class="flex-1 py-4 text-center border-b-2 border-amber-500 text-amber-500 font-bold">전체 메시지</button>
+            <button onclick="switchTab('current')" id="tab-current" class="flex-1 py-4 text-center border-b-2 border-transparent text-slate-500 hover:text-slate-700">현재위치 메시지</button>
+            <button type="button" onclick="switchTab('history')" id="tab-history" class="flex-1 py-4 text-center border-b-2 border-transparent text-slate-500 hover:text-slate-700">히스토리 (동선)</button>
         </nav>
 
         <!-- 정렬 및 필터 (전체메시지 상단용) -->
-        <div id="filter-bar" class="px-4 py-2 bg-gray-900/50 flex justify-between items-center text-xs text-gray-400 border-b border-gray-900">
+        <div id="filter-bar" class="px-4 py-2 bg-white flex justify-between items-center text-xs text-slate-600 border-b border-slate-200">
             <span>나우바이브 맵 피드</span>
             <div class="flex gap-3">
-                <button class="text-amber-400 font-semibold">최신순</button>
-                <button class="hover:text-gray-200">인기순</button>
+                <button class="text-amber-500 font-semibold">최신순</button>
+                <button class="text-slate-500 hover:text-slate-700">인기순</button>
             </div>
         </div>
 
@@ -152,33 +152,33 @@
         </div>
 
         <!-- 하단 메시지 작성 컴포넌트 -->
-        <div class="p-4 bg-gray-900 border-t border-gray-800">
+        <div class="p-4 bg-white border-t border-slate-200">
             <form id="vibe-form" class="space-y-2">
                 <div class="flex gap-2">
                     <input type="text" id="vibe-input" required maxlength="100" 
                            placeholder="“공정대 사람 왤케 많음 ㅋㅋ” (해당 장소에서만 작성 가능)" 
-                           class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-400 transition-colors">
-                    <button type="button" onclick="triggerFileInput()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 rounded-xl transition-colors">
+                           class="flex-1 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-amber-400 transition-colors">
+                    <button type="button" onclick="triggerFileInput()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 rounded-xl transition-colors">
                         <i class="fa-solid fa-camera text-base"></i>
                     </button>
                 </div>
                 <input type="file" id="file-input" accept="image/*" class="hidden" onchange="handleFileChange()">
-                <div id="file-preview-container" class="hidden text-xs text-amber-400 flex items-center gap-2 bg-gray-950 p-2 rounded-lg border border-gray-800">
+                <div id="file-preview-container" class="hidden text-xs text-slate-700 flex items-center gap-2 bg-slate-100 p-2 rounded-lg border border-slate-200">
                     <i class="fa-solid fa-image"></i> <span id="file-name">이미지 업로드됨</span>
-                    <button type="button" onclick="clearFile()" class="text-red-400 ml-auto"><i class="fa-solid fa-xmark"></i></button>
+                    <button type="button" onclick="clearFile()" class="text-red-500 ml-auto"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 
                 <div class="flex justify-between items-center pt-1">
                     <!-- TTL(휘발성) 옵션 선택 -->
-                    <div class="flex items-center gap-2 text-xs text-gray-400">
+                    <div class="flex items-center gap-2 text-xs text-slate-600">
                         <label for="ttl-select"><i class="fa-regular fa-clock mr-1"></i>유지 시간:</label>
-                        <select id="ttl-select" class="bg-gray-950 border border-gray-800 rounded px-2 py-1 focus:outline-none">
+                        <select id="ttl-select" class="bg-slate-100 border border-slate-200 rounded px-2 py-1 text-slate-900 focus:outline-none">
                             <option value="3">3시간 (기본 휘발)</option>
                             <option value="24">24시간 하루저장</option>
                             <option value="999">영구 보존</option>
                         </select>
                     </div>
-                    <button type="submit" class="bg-amber-400 hover:bg-amber-500 text-gray-950 px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-colors">
+                    <button type="submit" class="bg-amber-400 hover:bg-amber-500 text-slate-950 px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-colors">
                         <i class="fa-solid fa-paper-plane mr-1"></i> 올리기
                     </button>
                 </div>
